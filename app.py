@@ -40,7 +40,7 @@ def create_google_event(summary, start_time_str, end_time_str):
             },
         }
         
-        calendar_id = 'primary'
+        calendar_id = 'shira72027@gmail.com'
         created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
         return created_event.get('htmlLink')
     except Exception as e:
