@@ -64,42 +64,38 @@ def verify_webhook():
 
 @app.route('/webhook', methods=['POST'])
 def whatsapp_webhook():
-    """קליטת הודעות נכנסות מוואטסאפ ויצירת פגישה ביומן"""
+    """קליטת הודעות נכנסות ויצירת פגישה ביומן לצרכי בדיקה"""
     data = request.json
     print("Received WhatsApp Data:", json.dumps(data, indent=2))
     
     try:
-        # בדיקה האם זו הודעת וואטסאפ אמיתית
+        sender_phone = "Test User"
+        # מנסים לחלץ את מספר הטלפון אם יש הודעה אמיתית
         if (data.get("entry") and 
             data["entry"][0].get("changes") and 
             data["entry"][0]["changes"][0].get("value").get("messages")):
             
             message_data = data["entry"][0]["changes"][0]["value"]["messages"][0]
-            message_text = message_data.get("text", {}).get("body", "").lower()
-            sender_phone = message_data.get("from")
-            
-            print(f"Message from {sender_phone}: {message_text}")
-            
-            # אם ההודעה מכילה בקשה לקביעת פגישה
-            #if "פגישה" in message_text or "קבע" in message_text:
-            # לצורך הדוגמה: נקבע את הפגישה למחר בשעה 10:00 בבוקר למשך שעה
-            now = datetime.now()
-            tomorrow = now + timedelta(days=1)
-            start_time = tomorrow.replace(hour=10, minute=0, second=0).isoformat() + "+03:00"
-            end_time = tomorrow.replace(hour=11, minute=0, second=0).isoformat() + "+03:00"
-            
-            event_title = f"פגישה מתואמת מוואטסאפ ({sender_phone})"
-            event_link = create_google_event(event_title, start_time, end_time)
-            
-            if event_link:
-                print(f"Event created successfully: {event_link}")
-            else:
-                print("Failed to create event.")
+            sender_phone = message_data.get("from", "Unknown")
+        
+        # יוצרים פגישה בכל מקרה כדי לבדוק את החיבור לגוגל!
+        now = datetime.now()
+        tomorrow = now + timedelta(days=1)
+        start_time = tomorrow.replace(hour=10, minute=0, second=0).isoformat() + "+03:00"
+        end_time = tomorrow.replace(hour=11, minute=0, second=0).isoformat() + "+03:00"
+        
+        event_title = f"פגישה מתואמת מוואטסאפ ({sender_phone})"
+        event_link = create_google_event(event_title, start_time, end_time)
+        
+        if event_link:
+            print(f"Event created successfully: {event_link}")
+        else:
+            print("Failed to create event. Check Google Credentials.")
                     
     except Exception as e:
-        print(f"Error processing webhook: {e}")
+        print(f"CRITICAL Error processing webhook: {e}")
 
     return jsonify({"status": "success"}), 200
-
+    
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
