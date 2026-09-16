@@ -60,7 +60,7 @@ def verify_webhook():
             return challenge, 200
         else:
             return "Verification failed", 403
-    return "Hello world", 200
+    return "קבע בבקשה פגישה עם יוסי בשעה 10:00 מחר", 200
 
 @app.route('/webhook', methods=['POST'])
 def whatsapp_webhook():
