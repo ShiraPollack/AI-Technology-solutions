@@ -60,7 +60,7 @@ def verify_webhook():
             return challenge, 200
         else:
             return "Verification failed", 403
-    return "קבע בבקשה פגישה עם יוסי בשעה 10:00 מחר", 200
+    return "Hello world", 200
 
 @app.route('/webhook', methods=['POST'])
 def whatsapp_webhook():
@@ -81,20 +81,20 @@ def whatsapp_webhook():
             print(f"Message from {sender_phone}: {message_text}")
             
             # אם ההודעה מכילה בקשה לקביעת פגישה
-            if "פגישה" in message_text or "קבע" in message_text:
-                # לצורך הדוגמה: נקבע את הפגישה למחר בשעה 10:00 בבוקר למשך שעה
-                now = datetime.now()
-                tomorrow = now + timedelta(days=1)
-                start_time = tomorrow.replace(hour=10, minute=0, second=0).isoformat() + "+03:00"
-                end_time = tomorrow.replace(hour=11, minute=0, second=0).isoformat() + "+03:00"
-                
-                event_title = f"פגישה מתואמת מוואטסאפ ({sender_phone})"
-                event_link = create_google_event(event_title, start_time, end_time)
-                
-                if event_link:
-                    print(f"Event created successfully: {event_link}")
-                else:
-                    print("Failed to create event.")
+            #if "פגישה" in message_text or "קבע" in message_text:
+            # לצורך הדוגמה: נקבע את הפגישה למחר בשעה 10:00 בבוקר למשך שעה
+            now = datetime.now()
+            tomorrow = now + timedelta(days=1)
+            start_time = tomorrow.replace(hour=10, minute=0, second=0).isoformat() + "+03:00"
+            end_time = tomorrow.replace(hour=11, minute=0, second=0).isoformat() + "+03:00"
+            
+            event_title = f"פגישה מתואמת מוואטסאפ ({sender_phone})"
+            event_link = create_google_event(event_title, start_time, end_time)
+            
+            if event_link:
+                print(f"Event created successfully: {event_link}")
+            else:
+                print("Failed to create event.")
                     
     except Exception as e:
         print(f"Error processing webhook: {e}")
