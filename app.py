@@ -1,35 +1,105 @@
 import os
+import json
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
 app = Flask(__name__)
 
-# את יכולה לשנות את הטוקן הזה לאיזו מחרוזת שבא לך. נצטרך אותו בהמשך במטא.
-VERIFY_TOKEN = "my_custom_verify_token_123"
+# הגדרת הרשאות גוגל יומן
+SCOPES = ['https://www.googleapis.com/auth/calendar']
 
-# פונקציה 1: מטא בודקת שהשרת שלנו באמת קיים (GET)
+def get_calendar_service():
+    """יוצר חיבור מורשה ל-Google Calendar מתוך משתנה הסביבה ב-Render"""
+    creds_json = os.environ.get('GOOGLE_CREDENTIALS_JSON')
+    if creds_json:
+        creds_info = json.loads(creds_json)
+        creds = service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+    else:
+        # גיבוי מקומי אם הקובץ נמצא בתיקייה
+        creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+    
+    service = build('calendar', 'v3', credentials=creds)
+    return service
+
+def create_google_event(summary, start_time_str, end_time_str):
+    """מוסיף אירוע חדש ליומן הראשי"""
+    try:
+        service = get_calendar_service()
+        
+        event = {
+            'summary': summary,
+            'start': {
+                'dateTime': start_time_str,  # פורמט: '2026-09-20T10:00:00+03:00'
+                'timeZone': 'Asia/Jerusalem',
+            },
+            'end': {
+                'dateTime': end_time_str,    # פורמט: '2026-09-20T11:00:00+03:00'
+                'timeZone': 'Asia/Jerusalem',
+            },
+        }
+        
+        calendar_id = 'primary'
+        created_event = service.events().insert(calendarId=calendar_id, body=event).execute()
+        return created_event.get('htmlLink')
+    except Exception as e:
+        print(f"Error creating calendar event: {e}")
+        return None
+
 @app.route('/webhook', methods=['GET'])
 def verify_webhook():
-    mode = request.args.get('hub.mode')
-    token = request.args.get('hub.verify_token')
-    challenge = request.args.get('hub.challenge')
+    """אימות ה-Webhook מול מטא"""
+    verify_token = "YOUR_VERIFY_TOKEN" # שימי לב להחליף או לוודא שזה תואם למה שהגדרת במטא
+    mode = request.args.get("hub.mode")
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
 
     if mode and token:
-        if mode == 'subscribe' and token == VERIFY_TOKEN:
+        if mode == "subscribe" and token == verify_token:
             return challenge, 200
         else:
             return "Verification failed", 403
-    return "Bot is running!", 200
+    return "Hello world", 200
 
-# פונקציה 2: מטא שולחת לנו את ההודעות שהמשתמש שלח (POST)
 @app.route('/webhook', methods=['POST'])
-def receive_message():
-    data = request.get_json()
-    print("Received data:", data) # כרגע רק נדפיס את זה ללוגים בענן כדי לראות שזה עובד
+def whatsapp_webhook():
+    """קליטת הודעות נכנסות מוואטסאפ ויצירת פגישה ביומן"""
+    data = request.json
+    print("Received WhatsApp Data:", json.dumps(data, indent=2))
     
-    # חובה להחזיר 200 OK למטא כדי שידעו שקיבלנו את ההודעה
+    try:
+        # בדיקה האם זו הודעת וואטסאפ אמיתית
+        if (data.get("entry") and 
+            data["entry"][0].get("changes") and 
+            data["entry"][0]["changes"][0].get("value").get("messages")):
+            
+            message_data = data["entry"][0]["changes"][0]["value"]["messages"][0]
+            message_text = message_data.get("text", {}).get("body", "").lower()
+            sender_phone = message_data.get("from")
+            
+            print(f"Message from {sender_phone}: {message_text}")
+            
+            # אם ההודעה מכילה בקשה לקביעת פגישה
+            if "פגישה" in message_text or "קבע" in message_text:
+                # לצורך הדוגמה: נקבע את הפגישה למחר בשעה 10:00 בבוקר למשך שעה
+                now = datetime.now()
+                tomorrow = now + timedelta(days=1)
+                start_time = tomorrow.replace(hour=10, minute=0, second=0).isoformat() + "+03:00"
+                end_time = tomorrow.replace(hour=11, minute=0, second=0).isoformat() + "+03:00"
+                
+                event_title = f"פגישה מתואמת מוואטסאפ ({sender_phone})"
+                event_link = create_google_event(event_title, start_time, end_time)
+                
+                if event_link:
+                    print(f"Event created successfully: {event_link}")
+                else:
+                    print("Failed to create event.")
+                    
+    except Exception as e:
+        print(f"Error processing webhook: {e}")
+
     return jsonify({"status": "success"}), 200
 
 if __name__ == '__main__':
-    # Render מספקת את הפורט באופן דינמי
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=5000)
